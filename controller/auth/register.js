@@ -10,7 +10,7 @@ const generateToken = (id, email) => {
 // ✅ Step 1: Register → create user & send OTP
 export const register = async (req, res) => {
   try {
-    const { username, fullName, phone, email, location, gender } = req.body;
+    const { username, fullName, phone, email, location, gender, lat, lng } = req.body;
 
     if (!fullName || !phone || !email) {
       return res
@@ -29,7 +29,7 @@ export const register = async (req, res) => {
     // Generate OTP
     const otp = String(Math.floor(100000 + Math.random() * 900000));
 
-    user = new userModel({
+    const userData = {
       username,
       fullName,
       phone,
@@ -38,7 +38,16 @@ export const register = async (req, res) => {
       gender,
       Otp: otp,
       OtpExpireAt: Date.now() + 2 * 60 * 1000, // 2 mins expiry
-    });
+    };
+
+    if (lat && lng) {
+        userData.locationCoordinates = {
+            type: 'Point',
+            coordinates: [Number(lng), Number(lat)]
+        };
+    }
+
+    user = new userModel(userData);
 
     await user.save();
 

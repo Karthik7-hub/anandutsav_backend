@@ -4,7 +4,7 @@ import ServiceProvider from "../../model/serviceProviderModel.js"
 
 
 export const register=async(req,res)=>{
-       const {name,email,password,gender,phone,location}=req.body;
+       const {name,email,password,gender,phone,location,lat,lng}=req.body;
 
     if(!name || !email || !password) {
         return res.status(300).json({success:false,msg:'Details missing'});
@@ -18,7 +18,16 @@ export const register=async(req,res)=>{
 
      const hashedPassword= await bcrypt.hash(password,10);
 
-     const user=new ServiceProvider({name,email,password:hashedPassword,gender,phone,location});
+     const providerData = {name,email,password:hashedPassword,gender,phone,location};
+     
+     if (lat && lng) {
+        providerData.exactLocation = {
+            type: 'Point',
+            coordinates: [Number(lng), Number(lat)]
+        };
+     }
+
+     const user=new ServiceProvider(providerData);
 
      await user.save();
       

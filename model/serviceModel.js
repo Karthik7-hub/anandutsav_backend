@@ -40,18 +40,21 @@ const serviceSchema = new mongoose.Schema({
 },
 
   maxPeople:{
-type:Number,
-default:0
+    type:Number,
+    default:0
   },
   minPeople:{
     type:Number,
     default:0
   },
-
-
-  
+  exactLocation: {
+    type: { type: String, enum: ['Point'], default: 'Point' },
+    coordinates: { type: [Number] } // [longitude, latitude]
+  }
 
 }, { timestamps: true });
+
+serviceSchema.index({ exactLocation: '2dsphere' });
 
 const Service = mongoose.model('Service', serviceSchema);
 export default Service;

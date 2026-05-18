@@ -25,12 +25,24 @@ const uploadImages = async (files) => {
 
 export const addService = async (req, res) => {
   try {
-    const { name, description, priceInfo, categoryName, minPeople, maxPeople, mindaysprior } = req.body;
+    const { name, description, priceInfo, categoryName, minPeople, maxPeople, mindaysprior, lat, lng } = req.body;
 
     if (!name || !priceInfo || !categoryName || !minPeople || !maxPeople) {
       return res.status(400).json({ success: false, msg: "All fields are required" });
     }
-    if (Number(minPeople) > Number(maxPeople)) {
+    
+    const minP = Number(minPeople);
+    const maxP = Number(maxPeople);
+    const minDays = Number(mindaysprior || 0);
+    
+    let parsedPriceInfo;
+    try {
+      parsedPriceInfo = typeof priceInfo === 'string' ? JSON.parse(priceInfo) : priceInfo;
+    } catch (err) {
+      return res.status(400).json({ success: false, msg: "Invalid price format" });
+    }
+
+    if (minP > maxP) {
       return res.status(400).json({ success: false, msg: "Minimum People cannot be more than maximum people" });
     }
     if (!req.files || req.files.length === 0) {
@@ -46,17 +58,27 @@ export const addService = async (req, res) => {
     }
 
     const providerId = req.provider._id;
-    const service = await Service.create({
+    
+    const servicePayload = {
       name,
       description,
       images: uploadedImages, // Save the array of {url, public_id} objects
-      priceInfo,
+      priceInfo: parsedPriceInfo,
       categories: category._id,
       providers: providerId,
-      minPeople: Number(minPeople),
-      maxPeople: Number(maxPeople),
-      mindaysprior
-    });
+      minPeople: minP,
+      maxPeople: maxP,
+      mindaysprior: minDays
+    };
+
+    if (lat && lng) {
+      servicePayload.exactLocation = {
+        type: 'Point',
+        coordinates: [Number(lng), Number(lat)]
+      };
+    }
+
+    const service = await Service.create(servicePayload);
 
     const provider = await ServiceProvider.findById(providerId);
     provider.services.push(service._id);
@@ -82,15 +104,43 @@ export const getServices = async (req, res) => {
 };
 
 
+import UserHistory from "../model/userHistoryModel.js";
+
 export const getServiceById = async (req, res) => {
-  const service = await Service.findById(req.params.id)
-    .populate('categories')
-    .populate('providers');
-    
-  if (service) {
-    res.json({success:true,service});
-  } else {
-    res.status(404).json({success:false,msg:'Service not found'});
+  try {
+    const service = await Service.findById(req.params.id)
+      .populate('categories')
+      .populate('providers');
+      
+    if (service) {
+      // --- Track Visit for Recommendations ---
+      const userId = req.user?._id || req.body?.userId || req.query?.userId;
+      if (userId && service.providers) {
+        await UserHistory.findOneAndUpdate(
+          { userId },
+          {
+            $push: {
+              visits: {
+                $each: [{ 
+                  providerId: service.providers._id, 
+                  category: service.categories?.name,
+                  timestamp: new Date() 
+                }],
+                $slice: -50
+              }
+            }
+          },
+          { upsert: true, new: true }
+        ).catch(err => console.error('Tracking visit failed:', err.message));
+      }
+      // ---------------------------------------
+
+      res.json({success:true,service});
+    } else {
+      res.status(404).json({success:false,msg:'Service not found'});
+    }
+  } catch (error) {
+    res.status(500).json({success:false,msg:'Server error'});
   }
 };
 

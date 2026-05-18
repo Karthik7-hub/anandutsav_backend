@@ -1,12 +1,13 @@
 import express from "express";
 import protectProvider  from "../middlewares/providerAuth.js";
 import {addService,deleteService,getServiceById,getServiceByName,getServices} from "../controller/service.js";
-import {getAllServices,updateService,getnewbookings,getcompletedBookings,getupComingBookings} from "../controller/serviceProvider.js";
+import {getAllServices,updateService,getnewbookings,getcompletedBookings,getupComingBookings,getProviderDetails} from "../controller/serviceProvider.js";
 import upload from "../middlewares/upload.js"; 
 
 const aRouter=express.Router();
 
 
+aRouter.get('/me',protectProvider,getProviderDetails);
 aRouter.get('/getServiceById/:id',getServiceById);
 aRouter.post('/addService',protectProvider,upload.array('previousWorkImages', 10),addService);
 aRouter.get('/getallServicesByProvider',protectProvider,getAllServices);

@@ -175,6 +175,27 @@ export const updateService = async (req, res) => {
       updateData.categories = category._id;
     }
 
+    // Parse numeric fields and priceInfo if they exist
+    if (updateData.priceInfo) {
+      try {
+        updateData.priceInfo = typeof updateData.priceInfo === 'string' ? JSON.parse(updateData.priceInfo) : updateData.priceInfo;
+      } catch (err) {
+        return res.status(400).json({ success: false, msg: "Invalid price format" });
+      }
+    }
+    if (updateData.minPeople !== undefined) updateData.minPeople = Number(updateData.minPeople);
+    if (updateData.maxPeople !== undefined) updateData.maxPeople = Number(updateData.maxPeople);
+    if (updateData.mindaysprior !== undefined) updateData.mindaysprior = Number(updateData.mindaysprior);
+    
+    if (updateData.lat && updateData.lng) {
+      updateData.exactLocation = {
+        type: 'Point',
+        coordinates: [Number(updateData.lng), Number(updateData.lat)]
+      };
+      delete updateData.lat;
+      delete updateData.lng;
+    }
+
     // Parse imagesToKeep (handle both imagesToKeep and imagesToKeepJSON for backward compatibility)
     let keepUrls = [];
     const imagesToKeepData = imagesToKeep || imagesToKeepJSON;
@@ -284,8 +305,20 @@ export const getBookings=async(req,res)=>{
        }
 }
 
+export const getProviderDetails = async (req, res) => {
+  try {
+    const id = req.provider._id;
+    const providerDetails = await ServiceProvider.findById(id).select("-password");
+    if (!providerDetails) {
+      return res.status(404).json({ success: false, msg: "Provider not found" });
+    }
+    return res.status(200).json(providerDetails);
+  } catch (err) {
+    console.error("Get Provider Details Error:", err);
+    return res.status(500).json({ success: false, msg: "Server error" });
+  }
+};
 
-
-export default {getAllServices,updateService, getnewbookings,getcompletedBookings,getupComingBookings};
+export default {getAllServices,updateService, getnewbookings,getcompletedBookings,getupComingBookings, getProviderDetails};
 
 

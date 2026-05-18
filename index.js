@@ -56,6 +56,8 @@ app.use('/convo', coRouter);
 app.use('/review',rRouter);
 app.use('/booking',bRouter);
 
+import recommendationRouter from './routes/recommendationRoutes.js';
+app.use('/recommendation', recommendationRouter);
 
 // --- UPDATE SERVER LISTENING ---
 server.listen(PORT, () => {
@@ -98,12 +100,25 @@ socket.on("stop typing", (room) => socket.to(room).emit("stop typing", { convers
   socket.on("new message", (newMessageRecieved) => {
     let conversation = newMessageRecieved.conversation;
 
-    if (!conversation || !conversation.participants) {
-        return console.log("Message received without conversation participants.");
+    if (!conversation) {
+        return console.log("Message received without conversation.");
+    }
+
+    // Support both participants array or individual user & provider fields
+    let participants = [];
+    if (conversation.participants && Array.isArray(conversation.participants)) {
+      participants = conversation.participants;
+    } else {
+      if (conversation.user) participants.push(conversation.user);
+      if (conversation.provider) participants.push(conversation.provider);
+    }
+
+    if (participants.length === 0) {
+      return console.log("Message received without participants.");
     }
 
     // Send the message to every participant in the conversation except the sender
-    conversation.participants.forEach((participant) => {
+    participants.forEach((participant) => {
       const participantId = participant._id ? participant._id.toString() : participant.toString();
       const senderId = newMessageRecieved.sender._id.toString();
       

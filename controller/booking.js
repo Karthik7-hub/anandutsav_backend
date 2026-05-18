@@ -1,9 +1,8 @@
 import Booking from "../model/bookingModel.js";
 import Service from "../model/serviceModel.js";
 import ServiceProvider from "../model/serviceProviderModel.js";
-import User from "../model/userModel.js"
-
-export const serviceAvailability = async (req, res) => {
+import User from "../model/userModel.js";
+import UserHistory from "../model/userHistoryModel.js";export const serviceAvailability = async (req, res) => {
   try {
     const { minp, maxp, date, serviceId } = req.body;
 
@@ -163,6 +162,18 @@ export const bookService = async (req, res) => {
     }
     u.previousBookings.push(newBooking._id);
     await u.save();
+
+    // --- TRACK BOOKING FOR RECOMMENDATIONS ---
+    await UserHistory.findOneAndUpdate(
+      { userId: user },
+      {
+        $push: {
+          bookings: { providerId: provider, timestamp: new Date() }
+        }
+      },
+      { upsert: true, new: true }
+    ).catch(err => console.error("Error tracking booking in history:", err.message));
+    // -----------------------------------------
 
     return res.status(201).json({
       success: true,
