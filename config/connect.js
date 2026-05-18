@@ -14,6 +14,10 @@ const connectDB = async () => {
       console.log(" MongoDB disconnected.");
     });
 
+    if (!process.env.MONGODB_URL) {
+      throw new Error("MONGODB_URL environment variable is not defined. Please configure it in your environment or Vercel Project Settings.");
+    }
+
     await mongoose.connect(`${process.env.MONGODB_URL}/anandutsav`);
 
   } catch (error) {
