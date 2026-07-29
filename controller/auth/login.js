@@ -27,14 +27,7 @@ export const enteremail = async (req, res) => {
     u.OtpExpireAt = Date.now() + 2 * 60 * 1000; 
     await u.save();
 
-    const mailOptions = {
-      from: `${process.env.EMAIL_USER}`,
-      to: email,
-      subject: "Your OTP Code",
-      text: `Your Login OTP for AnandUtsav is ${otp}. This OTP expires in 2 mins.`,
-    };
-
-    await sendOtpEmail(email, otp, mailOptions);
+    await sendOtpEmail(email, otp);
 
     return res.json({ success: true, msg: "OTP Sent" });
   } catch (err) {
@@ -49,7 +42,6 @@ export const verifyOtp = async (req, res) => {
   if (!email) {
     return res.status(400).json({ success: false, msg: "Email is required" });
   }
-
 
   try {
     const u = await user.findOne({ email });
@@ -81,20 +73,24 @@ export const verifyOtp = async (req, res) => {
 
     // ✅ Set token in cookie
     res.cookie("token", token, {
-      httpOnly: true,     // cannot be accessed by JS
-      secure: process.env.NODE_ENV === "production", // only HTTPS in production
-      sameSite: "strict", // CSRF protection
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     // Send welcome email (optional)
     await sendWelcomeEmail(u.fullName, u.email);
 
+    const userObj = u.toObject();
+    delete userObj.Otp;
+    delete userObj.OtpExpireAt;
+
     return res.status(200).json({
       success: true,
       msg: "OTP verified successfully",
-      token, // still return for API clients
-      u
+      token,
+      u: userObj
     });
   } catch (err) {
     console.error("OTP verification error:", err);

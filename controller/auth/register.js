@@ -18,19 +18,19 @@ export const register = async (req, res) => {
         .json({ success: false, msg: "Required fields missing" });
     }
 
-    let user = await userModel.findOne({ email });
+    let existingUser = await userModel.findOne({ email });
 
-    if (user) {
+    if (existingUser) {
       return res
         .status(400)
-        .json({ success: false, msg: "User already exists" });
+        .json({ success: false, msg: "User already exists with this email" });
     }
 
     // Generate OTP
     const otp = String(Math.floor(100000 + Math.random() * 900000));
 
     const userData = {
-      username,
+      username: username || email.split('@')[0],
       fullName,
       phone,
       email,
@@ -41,31 +41,23 @@ export const register = async (req, res) => {
     };
 
     if (lat && lng) {
-        userData.locationCoordinates = {
-            type: 'Point',
-            coordinates: [Number(lng), Number(lat)]
-        };
+      userData.locationCoordinates = {
+        type: 'Point',
+        coordinates: [Number(lng), Number(lat)]
+      };
     }
 
-    user = new userModel(userData);
-
+    const user = new userModel(userData);
     await user.save();
 
-    const mailOptions = {
-      from: `${process.env.EMAIL_USER}`,
-      to: email,
-      subject: "Your OTP Code",
-      text: `Your registration OTP for AnandUtsav is ${otp}. This OTP expires in 2 mins.`,
-    };
-
-    await sendOtpEmail(email, otp, mailOptions);
+    await sendOtpEmail(email, otp);
 
     return res
       .status(200)
       .json({ success: true, msg: "OTP sent to email. Please verify." });
   } catch (error) {
     console.error("Register error:", error);
-    return res.status(500).json({ success: false, msg: "Server error" });
+    return res.status(500).json({ success: false, msg: "Server error during registration" });
   }
 };
 
@@ -73,6 +65,10 @@ export const register = async (req, res) => {
 export const verifyOtp = async (req, res) => {
   try {
     const { email, userOtp } = req.body;
+
+    if (!email || !userOtp) {
+      return res.status(400).json({ success: false, msg: "Email and OTP are required" });
+    }
 
     const user = await userModel.findOne({ email });
     if (!user) {
@@ -101,20 +97,24 @@ export const verifyOtp = async (req, res) => {
     // ✅ Set token in cookie
     res.cookie("token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // HTTPS only in production
-      sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      secure: true,
+      sameSite: "none",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
+
+    const userObj = user.toObject();
+    delete userObj.Otp;
+    delete userObj.OtpExpireAt;
 
     return res.status(200).json({
       success: true,
       msg: "OTP verified, registration complete",
-      token, // still return in JSON for mobile clients
-      u
+      token,
+      u: userObj
     });
   } catch (error) {
     console.error("Verify OTP error:", error);
-    return res.status(500).json({ success: false, msg: "Server error" });
+    return res.status(500).json({ success: false, msg: "Server error during verification" });
   }
 };
 

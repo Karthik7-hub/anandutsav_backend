@@ -1,16 +1,15 @@
-export const logout=async(req,res)=>{
-   try{
-       res.clearCookie('token',{
-         httpOnly:true,
-        secure:process.env.NODE_ENV==='production',
-        sameSite: process.env.NODE_ENV==='production'?'none':'strict',
-       });
-       return res.json({success:true,msg:"Logged Out"});
-   }
-   catch(err){
-            res.json({success:false,msg:err.message});
-   }
-}
-
+export const logout = async (req, res) => {
+    try {
+        res.clearCookie('token', {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'none',
+        });
+        return res.status(200).json({ success: true, msg: "Logged Out" });
+    } catch (err) {
+        console.error("Logout error:", err.message);
+        return res.status(500).json({ success: false, msg: "Logout failed" });
+    }
+};
 
 export default logout;
