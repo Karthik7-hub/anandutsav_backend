@@ -1,20 +1,19 @@
 import express from 'express';
 import cors from 'cors';
 import 'dotenv/config.js';
-import http from 'http'; // Required for Socket.IO
-import { Server } from 'socket.io'; // Required for Socket.IO
-import cron from "node-cron";
+import http from 'http';
+import cron from 'node-cron';
+import cookieParser from 'cookie-parser';
+
+// Database & Socket Config
+import connectDB from './config/connect.js';
+import { initSocket } from './config/socket.js';
+
+// Controllers & Cron Jobs
 import { autoMoveCompletedBookings } from './controller/booking.js';
 
-cron.schedule("0 0 * * *", () => {
-  autoMoveCompletedBookings();
-});
-
-
-
-import router from "./routes/authRoutes.js";
-import cookieParser from "cookie-parser";
-import connectDB from './config/connect.js';
+// Route Modules
+import router from './routes/authRoutes.js';
 import pRouter from './routes/authProviderRoutes.js';
 import aRouter from './routes/serviceProviderRoutes.js';
 import cRouter from './routes/categoryRoutes.js';
@@ -23,30 +22,33 @@ import mRouter from './routes/messageRoutes.js';
 import coRouter from './routes/conversationRoutes.js';
 import rRouter from './routes/reviewRoutes.js';
 import bRouter from './routes/bookingRoutes.js';
+import recommendationRouter from './routes/recommendationRoutes.js';
+import contactRouter from './routes/contactRoutes.js';
 
-
-
-
+// --- INITIALIZE EXPRESS APP ---
+const app = express();
 const PORT = process.env.PORT || 4000;
 
-connectDB();
-
-const app = express();
-
-// --- CREATE HTTP SERVER TO WRAP THE EXPRESS APP ---
+// --- CREATE HTTP SERVER FOR EXPRESS & SOCKET.IO ---
 const server = http.createServer(app);
 
+// --- CRON JOBS ---
+cron.schedule("0 0 * * *", () => {
+  autoMoveCompletedBookings();
+});
+
+// --- CORS & BODY PARSER MIDDLEWARE ---
 const allowedOrigins = [
-    'http://localhost:5173',         // local React dev
-    'https://anand-utsav.vercel.app'   // production frontend
+    'http://localhost:5173',           // local React dev
+    'https://anand-utsav.vercel.app'     // production frontend
 ];
+
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // --- DATABASE CONNECTION MIDDLEWARE ---
-// Ensures a database connection is active before processing any requests in serverless environments
 app.use(async (req, res, next) => {
   try {
     await connectDB();
@@ -61,91 +63,23 @@ app.use(async (req, res, next) => {
   }
 });
 
-// --- ROUTES ---
+// --- API ROUTES ---
 app.use('/auth', router);
 app.use('/provider/auth', pRouter);
-app.use("/provider", aRouter);
-app.use("/category", cRouter);
-app.use("/user", uRouter);
+app.use('/provider', aRouter);
+app.use('/category', cRouter);
+app.use('/user', uRouter);
 app.use('/message', mRouter);
 app.use('/convo', coRouter);
-app.use('/review',rRouter);
-app.use('/booking',bRouter);
-
-import recommendationRouter from './routes/recommendationRoutes.js';
+app.use('/review', rRouter);
+app.use('/booking', bRouter);
 app.use('/recommendation', recommendationRouter);
+app.use('/contact', contactRouter);
 
-// --- UPDATE SERVER LISTENING ---
+// --- INITIALIZE SOCKET.IO ---
+initSocket(server, allowedOrigins);
+
+// --- START SERVER ---
 server.listen(PORT, () => {
     console.log("Server Started at PORT", PORT);
-});
-
-
-// ===================================
-// == SOCKET.IO INITIALIZATION      ==
-// ===================================
-const io = new Server(server, {
-  pingTimeout: 60000,
-  cors: {
-    origin: allowedOrigins, // Use the same origins as the main app
-  },
-});
-
-io.on("connection", (socket) => {
-  console.log("A user connected to socket.io");
-
-  // User joins a personal room based on their own MongoDB ID
-  socket.on("setup", (userData) => {
-    socket.join(userData._id);
-    socket.emit("connected");
-console.log(`User room created for: ${userData._id}`);
-  });
-
-  // User joins a specific conversation room
-  socket.on("join conversation", (room) => {
-    socket.join(room);
-    console.log("User joined conversation room: " + room);
-  });
-
-  // Typing indicators
- // Corrected lines in index.js:
-socket.on("typing", (room) => socket.to(room).emit("typing", { conversationId: room }));
-socket.on("stop typing", (room) => socket.to(room).emit("stop typing", { conversationId: room }));
-
-  // Handling a new message
-  socket.on("new message", (newMessageRecieved) => {
-    let conversation = newMessageRecieved.conversation;
-
-    if (!conversation) {
-        return console.log("Message received without conversation.");
-    }
-
-    // Support both participants array or individual user & provider fields
-    let participants = [];
-    if (conversation.participants && Array.isArray(conversation.participants)) {
-      participants = conversation.participants;
-    } else {
-      if (conversation.user) participants.push(conversation.user);
-      if (conversation.provider) participants.push(conversation.provider);
-    }
-
-    if (participants.length === 0) {
-      return console.log("Message received without participants.");
-    }
-
-    // Send the message to every participant in the conversation except the sender
-    participants.forEach((participant) => {
-      const participantId = participant._id ? participant._id.toString() : participant.toString();
-      const senderId = newMessageRecieved.sender._id.toString();
-      
-      if (participantId === senderId) return;
-
-      // Emit the "message received" event to the participant's personal room
-      socket.in(participantId).emit("message received", newMessageRecieved);
-    });
-  });
-
-  socket.on("disconnect", () => {
-    console.log("A user disconnected");
-  });
 });
