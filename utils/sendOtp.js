@@ -2,7 +2,7 @@ import transporter from "../config/nodemailer.js";
 import { getOtpHtml } from "../templates/emailTemplates.js";
 
 const sendOtpEmail = async (email, otp, customMailOptions = {}) => {
-  const fromSender = process.env.SENDER_EMAIL || process.env.SMTP_USER || process.env.EMAIL_USER || 'aanand.utsav01@gmail.com';
+  const fromSender = process.env.SENDER_EMAIL || process.env.SMTP_USER;
   const subject = customMailOptions.subject || 'Your Anand Utsav OTP Verification Code';
 
   const mailOptions = {

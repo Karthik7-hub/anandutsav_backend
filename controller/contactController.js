@@ -21,7 +21,7 @@ export const handleContactForm = async (req, res) => {
 
         // Send notification email to support team via SMTP
         try {
-            const recipientEmail = process.env.SENDER_EMAIL || process.env.SMTP_USER || 'aanand.utsav01@gmail.com';
+            const recipientEmail = process.env.SENDER_EMAIL || process.env.SMTP_USER;
             await transporter.sendMail({
                 from: `"Anand Utsav Contact Form" <${process.env.SMTP_USER}>`,
                 to: recipientEmail,
@@ -63,7 +63,7 @@ export const handleFraudReport = async (req, res) => {
 
         // Send email alert to security team via SMTP
         try {
-            const recipientEmail = process.env.SENDER_EMAIL || process.env.SMTP_USER || 'aanand.utsav01@gmail.com';
+            const recipientEmail = process.env.SENDER_EMAIL || process.env.SMTP_USER;
             await transporter.sendMail({
                 from: `"Anand Utsav Fraud Alert" <${process.env.SMTP_USER}>`,
                 to: recipientEmail,

@@ -63,6 +63,11 @@ app.use(async (req, res, next) => {
   }
 });
 
+// --- ROOT HEALTH CHECK ROUTE ---
+app.get('/', (req, res) => {
+  res.status(200).json({ success: true, message: 'Anand Utsav Backend API is live!' });
+});
+
 // --- API ROUTES ---
 app.use('/auth', router);
 app.use('/provider/auth', pRouter);
@@ -83,3 +88,5 @@ initSocket(server, allowedOrigins);
 server.listen(PORT, () => {
     console.log("Server Started at PORT", PORT);
 });
+
+export default app;
